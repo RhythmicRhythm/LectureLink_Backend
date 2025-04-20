@@ -16,19 +16,20 @@ const firebaseConfig = {
   type: process.env.FIREBASE_TYPE,
   project_id: process.env.FIREBASE_PROJECT_ID,
   private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
   client_email: process.env.FIREBASE_CLIENT_EMAIL,
   client_id: process.env.FIREBASE_CLIENT_ID,
   auth_uri: process.env.FIREBASE_AUTH_URI,
   token_uri: process.env.FIREBASE_TOKEN_URI,
   auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
   client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
-  universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN
+  universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
 };
+
 
 admin.initializeApp({
   credential: admin.credential.cert(firebaseConfig),
-  storageBucket: "gs://edu-tech-rhythmic.appspot.com",
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
 });
 
 const createCourse = asyncHandler(async (req, res) => {
@@ -41,21 +42,36 @@ const createCourse = asyncHandler(async (req, res) => {
       throw new Error("Please fill in all fields");
     }
 
+    let publicUrl = null;
+
     if (req.file) {
       const file = req.file;
+      const userFullName = req.user.fullname.replace(/\s+/g, "_");
+      const userId = req.user._id;
+      const fileType = "Course_Image";
 
-      const storageRef = admin.storage().bucket().file(file.originalname);
+      const nameSuffix = userFullName.slice(-4);
+      const folderName = "Course_Images";
+
+      // Create a unique filename to avoid collisions
+      const uniqueFileName = `${folderName}/${fileType}_${Date.now()}_${
+        file.originalname
+      }`;
+
+      const storageRef = admin.storage().bucket().file(uniqueFileName);
 
       // Upload the file to Firebase Storage
       await storageRef.save(file.buffer, {
         contentType: file.mimetype,
       });
 
-      // Get the public URL of the uploaded file ++
-      var publicUrl = await storageRef.getSignedUrl({
-        action: "read",
-        // expires: Date.now() + 24 * 3600 * 1000,
-      });
+      // Make the file publicly accessible
+      await storageRef.makePublic();
+
+      // Generate the permanent public URL
+      publicUrl = `https://storage.googleapis.com/${
+        admin.storage().bucket().name
+      }/${uniqueFileName}`;
     }
 
     // Create Post with or without image
@@ -63,14 +79,13 @@ const createCourse = asyncHandler(async (req, res) => {
       course_title,
       course_code,
       course_description: course_description.replace(/\n/g, "<br/>"),
-      image: publicUrl.toString(),
+      image: publicUrl ? publicUrl.toString() : null,
     });
 
     res.status(201).json(course);
   } catch (err) {
-    console.error(err);
-    const error = new Error(err.message);
-    res.status(500).send(error);
+    console.log("Err Creating a new Course", err);
+    res.status(500).json({ message: err.message });
   }
 });
 
