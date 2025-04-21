@@ -2,6 +2,7 @@ const dotenv = require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const authRoute = require("./routes/authRoute")
 const userRoute = require("./routes/userRoute");
 const courseRoute = require("./routes/courseRoute");
 const cors = require("cors");
@@ -27,18 +28,10 @@ app.use(
   })
 );
 
-// Express session
-app.use(
-  session({
-    secret: "secret",
-    resave: true,
-    saveUninitialized: true,
-  })
-);
-
 // Routes Middleware
-app.use("/users", userRoute);
-app.use("/course", courseRoute);
+app.use("/api/v1/auth", authRoute);
+app.use("/api/v1/user", userRoute);
+app.use("/api/v1/course", courseRoute);
 
 //Error Middleware
 app.use(errorHandler);

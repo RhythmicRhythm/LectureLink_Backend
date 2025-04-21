@@ -9,7 +9,6 @@ const {
   getAllUsers,
   updateUser,
   changePassword,
-
   forgotPassword,
   resetemailsent,
   resetPassword,
